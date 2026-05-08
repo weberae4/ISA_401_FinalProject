@@ -22,6 +22,8 @@ What predicts college ROI for Marketing majors at Ohio universities?
 - isa401_finalproject_scrapeddata.Rmd
 - isa401_finalproject_unstructureddata.Rmd
 - isa401_finalproject_mergeddata.Rmd
+- isa401_finalproject_exploratoryanalysis.Rmd (code)
+- isa401_finalproject_exploratoryanalysis.html (html with visible graphs)
 
 ## Methods
 - API collection with httr/jsonlite
