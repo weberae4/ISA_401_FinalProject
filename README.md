@@ -1,6 +1,7 @@
 # ISA 401 Final Project: College ROI & Marketing Curriculum Analysis
 
 ## Technical Presentation Recording Link
+https://youtu.be/TxAqigkhh1k 
 
 ## Tableau Dashboard Link
 
