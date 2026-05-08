@@ -1,0 +1,125 @@
+---
+title: 'ISA 401 Final Project: API Data'
+author: "Mia Weber, Victoria Rhodes, & Helen Kreitzer"
+date: "2026-04-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# API Data: US Department of Education College Scorecard
+
+```{r api_ohio_target_main_campuses}
+
+library(httr)
+library(jsonlite)
+library(dplyr)
+library(stringr)
+
+# step 0: define API key and base URL
+API_KEY <- Sys.getenv("USADOE_API_KEY")
+base_url <- "https://api.data.gov/ed/collegescorecard/v1/schools"
+
+
+# step 1: define exact target school names from the API
+target_api_names <- c(
+  "Miami University-Oxford",
+  "Ohio State University-Main Campus",
+  "University of Cincinnati-Main Campus",
+  "Ohio University-Main Campus",
+  "University of Toledo",
+  "Bowling Green State University-Main Campus",
+  "Cleveland State University",
+  "Wright State University-Main Campus",
+  "Kent State University at Kent",
+  "University of Akron Main Campus",
+  "Youngstown State University"
+)
+
+
+# step 2: collect all Ohio schools using pagination
+all_data <- list()
+
+for (i in 0:5) {
+  
+  query <- list(
+    api_key = API_KEY,
+    `school.state` = "OH",
+    fields = paste(
+      "id",
+      "school.name",
+      "school.state",
+      "latest.cost.tuition.in_state",
+      "latest.cost.tuition.out_of_state",
+      "latest.earnings.10_yrs_after_entry.median",
+      "latest.aid.median_debt.completers.overall",
+      sep = ","
+    ),
+    per_page = 100,
+    page = i
+  )
+  
+  response <- GET(base_url, query = query)
+  data_json <- content(response, as = "text", encoding = "UTF-8")
+  data <- fromJSON(data_json, flatten = TRUE)
+  
+  all_data[[i + 1]] <- data$results
+  
+  Sys.sleep(1)
+}
+
+
+# step 3: combine all pages into one dataframe
+df <- bind_rows(all_data)
+
+
+# step 4: clean and rename variables
+df <- df |>
+  rename(
+    school_name = school.name,
+    state = school.state,
+    tuition_in = latest.cost.tuition.in_state,
+    tuition_out = latest.cost.tuition.out_of_state,
+    earnings = latest.earnings.10_yrs_after_entry.median,
+    debt = latest.aid.median_debt.completers.overall
+  ) |>
+  mutate(
+    ROI = earnings - debt
+  )
+
+
+# step 5: keep only the 11 target main campuses
+df_final_api <- df |>
+  filter(school_name %in% target_api_names) |>
+  select(
+    id,
+    school_name,
+    state,
+    tuition_in,
+    tuition_out,
+    earnings,
+    debt,
+    ROI
+  )
+
+
+# final output
+df_final_api
+
+```
+
+```{r}
+df_final_api |>
+  dplyr::select(school_name, id)
+```
+
+```{r}
+write.csv(
+  df_final_api,
+  "api_doe_data.csv",
+  row.names = FALSE
+)
+```
+
