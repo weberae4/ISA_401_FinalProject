@@ -1,0 +1,75 @@
+---
+title: 'ISA 401 Final Project: Final Merged Dataset'
+author: "Mia Weber, Victoria Rhodes, & Helen Kreitzer"
+date: "2026-05-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Load 3 Files
+
+```{r}
+library(readr)
+library(dplyr)
+
+api <- read.csv("api_doe_data.csv")
+html <- read.csv("scraped_campusreel_data.csv")
+llm <- read.csv("unstructured_curriculum.csv")
+
+# add ID column to html data
+html_id_map <- data.frame(
+  scraped_name = c(
+    "University of Akron", "Bowling Green State University", 
+    "University of Cincinnati", "Cleveland State University", 
+    "Kent State University", "Miami University", 
+    "Ohio State University", "Ohio University", 
+    "University of Toledo", "Youngstown State University"
+  ),
+  school = c(
+    "Akron", "BGSU", "UC", "Cleveland", "Kent", "Miami", 
+    "OhioState", "OU", "Toledo", "Youngstown"
+  ),
+  id = c(
+    "200800", "201441", "201885", "202134", "203517", "204024", 
+    "204796", "204857", "206084", "206695"
+  )
+)
+
+html <- html %>%
+  left_join(html_id_map, by = c("school" = "scraped_name"))
+```
+
+## Merge into one dataset
+
+```{r}
+# same datatype for id columns
+llm$id  <- as.character(llm$id)
+html$id <- as.character(html$id)
+api$id  <- as.character(api$id)
+
+# join on id
+final_dataset <- llm %>%
+  left_join(html, by = "id") %>%
+  left_join(api, by = "id")
+
+final_dataset <- final_dataset %>%
+  select(
+    id,
+    school = school.y, 
+    official_name,
+    avg_tech_score,
+    top_3_tools,
+    top_3_skills,
+    everything(),
+    -school.x,
+    -school.y.y,
+    -official_name,
+    -school_name
+  )
+
+readr::write_excel_csv(final_dataset, "college_roi.csv")
+```
