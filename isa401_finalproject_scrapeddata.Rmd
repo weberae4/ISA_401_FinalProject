@@ -1,0 +1,118 @@
+---
+title: 'ISA 401 Final Project: Scraped Data'
+author: "Mia Weber, Victoria Rhodes, & Helen Kreitzer"
+date: "2026-05-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Scraped Data: Campus Reel Marketing Salaries
+
+```{r}
+# define target schools
+target_schools <- c(
+  "Miami University",
+  "Ohio State University",
+  "University of Cincinnati",
+  "Ohio University",
+  "University of Toledo",
+  "Bowling Green State University",
+  "Cleveland State University",
+  "Wright State University",
+  "Kent State University",
+  "University of Akron",
+  "Youngstown State University"
+)
+```
+
+
+```{r campusreel_scraping}
+
+# step 0: define URLs for all pages of Ohio marketing rankings
+# CampusReel paginates results, so we include all pages to capture all schools
+campusreel_urls <- c(
+  "https://www.campusreel.org/best-colleges/major/marketing/top-colleges-for-marketing/ohio?filter-order=earnings+DESC&page=1",
+  "https://www.campusreel.org/best-colleges/major/marketing/top-colleges-for-marketing/ohio?filter-order=earnings+DESC&page=2",
+  "https://www.campusreel.org/best-colleges/major/marketing/top-colleges-for-marketing/ohio?filter-order=earnings+DESC&page=3",
+  "https://www.campusreel.org/best-colleges/major/marketing/top-colleges-for-marketing/ohio?filter-order=earnings+DESC&page=4"
+)
+
+
+# step 1: load required libraries
+library(rvest)
+library(stringr)
+library(dplyr)
+
+
+# step 2: scrape and combine text from all pages
+# we loop through each URL and extract all visible text
+all_page_text <- ""
+
+for(url in campusreel_urls){
+  page <- read_html(url)
+  all_page_text <- paste(all_page_text, html_text2(page))
+  
+  # pause between requests to avoid overwhelming the server
+  Sys.sleep(2)
+}
+
+
+# step 3: define a function to extract salary for a given school
+# this function searches the combined text for the school name
+# and captures the "On average, graduates earn $..." phrase
+get_salary_for_school <- function(school_name){
+  
+  pattern <- paste0(
+    school_name,
+    "(.|\\n)*?On average, graduates earn \\$[0-9,]+"
+  )
+  
+  block <- str_extract(
+    all_page_text,
+    regex(pattern, ignore_case = TRUE)
+  )
+  
+  salary <- str_extract(block, "\\$[0-9,]+$")
+  
+  return(salary)
+}
+
+
+# step 4: apply the function to all target schools
+# this creates a structured dataset of school and salary
+campusreel_salary_data <- data.frame(
+  school = target_schools,
+  average_salary = sapply(target_schools, get_salary_for_school),
+  stringsAsFactors = FALSE
+)
+
+
+# step 5: clean salary values
+# remove $ and commas and convert to numeric for analysis
+campusreel_salary_data <- campusreel_salary_data |>
+  mutate(
+    average_salary_num = as.numeric(gsub("[\\$,]", "", average_salary))
+  )
+
+
+# step 6: reset row names for clean formatting
+rownames(campusreel_salary_data) <- NULL
+
+
+# final output
+campusreel_salary_data
+```
+
+```{r}
+# write CSV file (no row numbers)
+write.csv(
+  campusreel_salary_data,
+  "scraped_campusreel_data.csv",
+  row.names = FALSE
+)
+```
+
+
