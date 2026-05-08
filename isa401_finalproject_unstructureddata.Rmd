@@ -1,0 +1,187 @@
+---
+title: 'ISA 401 Final Project: Unstructured Data'
+author: "Mia Weber, Victoria Rhodes, & Helen Kreitzer"
+date: "2026-05-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Unstructured Data: School Course Catalog Pages
+
+## Define Schema
+
+```{r}
+library(ellmer)
+
+# initialize chat
+chat = ellmer::chat_openai(model = "gpt-4o-mini")
+
+# wrap schema
+marketing_audit_schema = ellmer::type_array(
+  items = ellmer::type_object(
+    school_name = ellmer::type_string(),
+    course_name = ellmer::type_string(),
+    tech_score = ellmer::type_integer(
+      description = "Score 1-10: 1 is pure theory/soft skills, 10 is heavy data/analytics/coding/SQL."
+    ),
+    skill_category = ellmer::type_string(
+      description = "One of: 'Analytics', 'Digital/Social', 'Sales', 'Strategy', or 'Consumer Behavior'."
+    ),
+    tools_mentioned = ellmer::type_array(
+      items = ellmer::type_string(),
+      description = "List specific tools like Tableau, Salesforce, Google Analytics, Excel, etc."
+    )
+  )
+)
+```
+
+## Structured Loop
+
+```{r}
+library(rvest)
+library(ellmer)
+library(dplyr)
+
+# scrape messy text from htmls
+get_school_text <- function(url) {
+  html <- read_html(url)
+  text <- html %>% 
+    html_element("body") %>% 
+    html_text2() 
+  
+  return(text)
+}
+```
+
+## Extraction
+
+```{r}
+# urls from each school in one vector
+school_urls <- c(
+  "Miami" = "https://bulletin.miamioh.edu/farmer-business/marketing-bsb/",
+  "OhioState" = "https://fisher.osu.edu/academic-departments/marketing-logistics/marketing/undergraduate-marketing/courses",
+  "UC" = "https://www.business.uc.edu/faculty-research/marketing/degree-options/focus-areas.html",
+  "OU" = "https://catalogs.ohio.edu/preview_program.php?catoid=104&poid=34215",
+  "Toledo" = "https://catalog.utoledo.edu/undergraduate/courses/mktg/",
+  "BGSU" = "https://catalog.bgsu.edu/preview_program.php?catoid=23&poid=8566",
+  "Cleveland" = "https://business.csuohio.edu/academics/marketing-major",
+  "Wright" = "https://business.wright.edu/supply-chain-management-marketing-and-management/marketing-course-descriptions",
+  "Kent" = "https://catalog.kent.edu/coursesaz/mktg/",
+  "Akron" = "https://bulletin.uakron.edu/undergraduate/colleges-programs/business-administration/marketing/marketing-management-bs/#requirementstext",
+  "Youngstown" = "https://catalog.ysu.edu/courses/mktg/")
+
+# initialize the LLM
+chat = ellmer::chat_openai(model = "gpt-5-mini-2025-08-07")
+
+all_school_data <- purrr::map_df(names(school_urls), function(name) {
+  
+  message("Processing: ", name)
+  
+  # scrape content
+  raw_text <- get_school_text(school_urls[name])
+  
+  # send to LLM
+  result <- chat$chat_structured(
+    paste("Extract all Marketing courses from this text and grade them:", raw_text),
+    type = ellmer::type_array(
+      items = ellmer::type_object(
+        course_name = ellmer::type_string(),
+        tech_score = ellmer::type_integer(description = "1-10 tech/data focus"),
+        skill_category = ellmer::type_string(description = "Analytics, Sales, etc."),
+        tools = ellmer::type_array(items = ellmer::type_string())
+      )
+    )
+  )
+  
+  # add school name to results
+  result$school <- name
+  return(result)
+})
+```
+
+## Tech Score Average
+
+```{r}
+# calculate tech score average per school
+score_averages <- all_school_data %>%
+  group_by(school) %>%
+  summarize(avg_tech_score = mean(tech_score),
+            course_count = n())
+```
+
+## Top Skills and Tools
+
+```{r}
+library(tidyverse)
+
+# create a dataset for top tools mentioned
+top_tools <- all_school_data %>%
+  unnest(tools) %>% 
+  count(school, tools, name = "tool_count") %>%
+  group_by(school) %>%
+  slice_max(order_by = tool_count, n = 3, with_ties = FALSE) %>%
+  summarize(top_3_tools = paste(tools, collapse = ", "))
+
+# create a dataset for top skills mentioned
+top_skills <- all_school_data %>%
+  count(school, skill_category, name = "skill_count") %>%
+  group_by(school) %>%
+  slice_max(order_by = skill_count, n = 3, with_ties = FALSE) %>%
+  summarize(top_3_skills = paste(skill_category, collapse = ", "))
+
+# join tools, skills, and score averages into one dataset
+school_curriculum_summary <- top_tools %>%
+  left_join(top_skills, by = "school") %>%
+  left_join(score_averages, by = "school")
+
+print(school_curriculum_summary)
+```
+
+
+
+## Correct names and IDs
+
+#### *Note: Wright State University was excluded from the curriculum extraction analysis because the course description content was dynamically loaded and could not be consistently extracted using the same static HTML workflow applied to the other universities*
+
+```{r}
+# mapping of school abbreviations to full name and ID
+school_lookup <- data.frame(
+  school = c("Akron", "BGSU", "UC", "Cleveland", "Kent", "Miami", 
+             "OhioState", "OU", "Toledo", "Youngstown"),
+  official_name = c("University of Akron Main Campus", 
+                    "Bowling Green State University-Main Campus",
+                    "University of Cincinnati-Main Campus", 
+                    "Cleveland State University",
+                    "Kent State University at Kent", 
+                    "Miami University-Oxford",
+                    "Ohio State University-Main Campus", 
+                    "Ohio University-Main Campus",
+                    "University of Toledo", 
+                    "Youngstown State University"),
+  id = c("200800", "201441", "201885", "202134", "203517", "204024", 
+            "204796", "204857", "206084", "206695")
+)
+
+# join into one dataset
+school_curriculum_summary <- top_tools %>%
+  left_join(top_skills, by = "school") %>%
+  left_join(score_averages, by = "school") %>%
+  left_join(school_lookup, by = "school")
+
+print(school_curriculum_summary)
+```
+## Output to CSV
+
+```{r}
+write.csv(
+  school_curriculum_summary,
+  "unstructured_curriculum.csv",
+  row.names = FALSE
+)
+```
+
+
+
