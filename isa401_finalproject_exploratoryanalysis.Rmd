@@ -1,0 +1,149 @@
+---
+title: 'ISA 401 Final Project: Exploratory Analysis'
+author: "Mia Weber, Victoria Rhodes, & Helen Kreitzer"
+date: "2026-05-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Final Dataset: Exploratory Summaries 
+
+## Preprocessing
+
+```{r}
+# load libraries
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(ggrepel)
+
+# load final merged dataset
+df <- read_csv("college_roi.csv")
+```
+
+## Descriptive Summaries
+
+```{r}
+# structure of dataset
+str(df)
+
+# summary statistics
+summary(df)
+
+# missing value check
+colSums(is.na(df))
+```
+
+## Data Validation
+
+```{r}
+validation_table <- data.frame(
+  check = c(
+    "Duplicate school IDs",
+    "Missing salary values",
+    "Missing ROI values",
+    "Missing tech scores",
+    "Duplicate schools",
+    "Schools excluded from extraction"
+  ),
+  
+  result = c(
+    sum(duplicated(df$id)),
+    sum(is.na(df$average_salary_num)),
+    sum(is.na(df$ROI)),
+    sum(is.na(df$avg_tech_score)),
+    sum(duplicated(df$school)),
+    "Wright State University"
+  )
+)
+
+validation_table
+```
+
+
+## Exploratory Analysis
+
+### ROI by School
+```{r}
+ggplot(df,
+       aes(x = reorder(school, ROI),
+           y = ROI)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "ROI by School",
+    x = "School",
+    y = "ROI"
+  )
+```
+
+
+### Average Marketing Salary by School
+```{r}
+ggplot(df,
+       aes(x = reorder(school, average_salary_num),
+           y = average_salary_num)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Average Marketing Salary by School",
+    x = "School",
+    y = "Average Salary"
+  )
+
+```
+
+### Tech Score vs Salary
+```{r}
+ggplot(df,
+       aes(x = avg_tech_score,
+           y = average_salary_num,
+           label = school)) +
+  geom_point(size = 3) +
+  geom_text_repel(size = 3,
+                  max.overlaps = Inf) +
+  labs(
+    title = "Tech Score vs Marketing Salary",
+    x = "Average Tech Score",
+    y = "Average Salary"
+  ) +
+  theme_minimal()
+```
+
+
+### Tuition vs ROI
+```{r}
+ggplot(df,
+       aes(x = tuition_in,
+           y = ROI,
+           label = school)) +
+  geom_point(size = 3) +
+  geom_text_repel(size = 3,
+                  max.overlaps = Inf) +
+  labs(
+    title = "In-State Tuition vs College ROI",
+    x = "In-State Tuition",
+    y = "ROI"
+  ) +
+  theme_minimal()
+```
+
+
+### Correlation Matrix
+```{r}
+numeric_df <- df |>
+  select(
+    avg_tech_score,
+    average_salary_num,
+    tuition_in,
+    earnings,
+    debt,
+    ROI
+  )
+
+round(cor(numeric_df),3)
+```
+
