@@ -5,13 +5,15 @@ https://youtu.be/TxAqigkhh1k
 
 ## Tableau Dashboard Link
 
-## Research Question
-What predicts college ROI for Marketing majors at Ohio universities?
 
-## Team Members: Group 20
+## Team Members
+Group 20
 - Mia Weber
 - Victoria Rhodes
 - Helen Kreitzer
+
+## Research Question
+What predicts college ROI for Marketing majors at Ohio universities?
 
 ## Data Sources
 1. US Department of Education College Scorecard API
