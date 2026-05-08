@@ -1,5 +1,4 @@
-# ISA 401 Final Project
-# College ROI & Marketing Curriculum Analysis
+# ISA 401 Final Project: College ROI & Marketing Curriculum Analysis
 
 ## Research Question
 What predicts college ROI for Marketing majors at Ohio universities?
