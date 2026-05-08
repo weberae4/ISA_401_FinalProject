@@ -3,7 +3,7 @@
 ## Research Question
 What predicts college ROI for Marketing majors at Ohio universities?
 
-## Team Members
+## Team Members: Group 20
 - Mia Weber
 - Victoria Rhodes
 - Helen Kreitzer
